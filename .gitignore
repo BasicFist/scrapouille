@@ -73,3 +73,9 @@ Thumbs.db
 *.tmp
 *.bak
 *.swp
+
+# Phase 2: Metrics and Cache
+data/
+*.db
+*.db-journal
+metrics_export.csv
