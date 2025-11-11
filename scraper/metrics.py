@@ -224,3 +224,35 @@ class MetricsDB:
                 writer.writerows([dict(row) for row in rows])
 
             logger.info(f"✓ Exported {len(rows)} rows to {output_path}")
+
+    def get_recent_scrapes(self, limit: int = 20) -> List[Dict[str, Any]]:
+        """
+        Get recent scrape records formatted for UI display
+
+        Args:
+            limit: Maximum number of records to return
+
+        Returns:
+            List of dictionaries with scrape details formatted for display
+        """
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute("""
+                SELECT
+                    id,
+                    strftime('%Y-%m-%d %H:%M', timestamp) as timestamp,
+                    url,
+                    model,
+                    execution_time_seconds as execution_time,
+                    cached,
+                    validation_passed,
+                    schema_used,
+                    error,
+                    CASE WHEN error IS NULL THEN 1 ELSE 0 END as success
+                FROM scrapes
+                ORDER BY timestamp DESC
+                LIMIT ?
+            """, (limit,))
+
+            records = [dict(row) for row in cursor.fetchall()]
+            return records

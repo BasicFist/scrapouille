@@ -28,6 +28,7 @@ from .metrics import MetricsDB
 from .models import SCHEMAS, validate_data
 from .stealth import get_stealth_config, StealthHeaders
 from .batch import AsyncBatchProcessor, BatchConfig, BatchResult
+from .ui_validation import validate_url, sanitize_prompt
 
 
 class TUIScraperBackend:
@@ -73,7 +74,23 @@ class TUIScraperBackend:
         Returns:
             Tuple of (result_data, metadata)
             metadata includes: execution_time, model_used, fallback_attempts, cached, validation_passed
+
+        Raises:
+            ValueError: If URL or prompt validation fails
         """
+        # Validate URL (Security: SSRF protection)
+        url_valid, url_error = validate_url(url)
+        if not url_valid:
+            raise ValueError(f"Invalid URL: {url_error}")
+
+        # Validate and sanitize prompt (Security: Injection protection)
+        prompt_valid, sanitized_prompt, prompt_error = sanitize_prompt(prompt)
+        if not prompt_valid:
+            raise ValueError(f"Invalid prompt: {prompt_error}")
+
+        # Use sanitized prompt
+        prompt = sanitized_prompt
+
         start_time = asyncio.get_event_loop().time()
         cached = False
         fallback_attempts = 0
@@ -229,7 +246,29 @@ class TUIScraperBackend:
 
         Returns:
             List of BatchResult objects
+
+        Raises:
+            ValueError: If prompt validation fails or no valid URLs provided
         """
+        # Validate and sanitize prompt (Security: Injection protection)
+        prompt_valid, sanitized_prompt, prompt_error = sanitize_prompt(prompt)
+        if not prompt_valid:
+            raise ValueError(f"Invalid prompt: {prompt_error}")
+
+        # Use sanitized prompt
+        prompt = sanitized_prompt
+
+        # Validate all URLs (Security: SSRF protection)
+        # Note: Individual URL validation is also done by AsyncBatchProcessor
+        # This pre-validation provides early feedback to the user
+        from .ui_validation import validate_batch_urls
+        urls_valid, valid_urls, urls_error = validate_batch_urls(urls, max_urls=1000)
+        if not valid_urls:
+            raise ValueError(f"No valid URLs provided: {urls_error}")
+
+        # Use validated URLs
+        urls = valid_urls
+
         # Build graph configuration
         graph_config = {
             "llm": {
@@ -315,8 +354,7 @@ class TUIScraperBackend:
         Returns:
             List of scrape records
         """
-        # TODO: Implement this in MetricsDB
-        return []
+        return self.metrics_db.get_recent_scrapes(limit=limit)
 
     async def check_ollama_connection(self, base_url: str = "http://localhost:11434") -> bool:
         """Check if Ollama is running
