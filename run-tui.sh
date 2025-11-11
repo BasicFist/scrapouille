@@ -34,9 +34,9 @@ fi
 source venv-isolated/bin/activate
 
 # Check if required dependencies are installed
-if ! ./venv-isolated/bin/python -c "import textual" 2>/dev/null; then
+if ! venv-isolated/bin/python -c "import textual" 2>/dev/null; then
     echo -e "${YELLOW}⚠ Textual not found. Installing dependencies...${NC}"
-    ./venv-isolated/bin/pip install -r requirements.txt
+    venv-isolated/bin/python -m pip install -r requirements.txt
 fi
 
 # Check Ollama connection
@@ -62,7 +62,7 @@ echo -e "${CYAN}Press Ctrl+Q to quit${NC}"
 echo ""
 
 # Launch TUI with explicit venv python
-./venv-isolated/bin/python tui.py
+venv-isolated/bin/python tui.py
 
 echo ""
 echo -e "${GREEN}✓ Scrapouille TUI closed${NC}"
