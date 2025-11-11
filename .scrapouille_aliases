@@ -4,7 +4,15 @@
 #   source /path/to/scrapouille/.scrapouille_aliases
 
 # Get the directory where this script is located
-SCRAPOUILLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Support both bash and zsh
+if [ -n "${BASH_SOURCE[0]}" ]; then
+    SCRAPOUILLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+elif [ -n "${(%):-%x}" ]; then
+    SCRAPOUILLE_DIR="$(cd "$(dirname "${(%):-%x}")" && pwd)"
+else
+    # Fallback to absolute path
+    SCRAPOUILLE_DIR="/home/miko/LAB/ai/services/scrapouille"
+fi
 
 # Scrapouille TUI - Fast terminal interface
 alias scrapouille-tui="cd '$SCRAPOUILLE_DIR' && ./run-tui.sh"
