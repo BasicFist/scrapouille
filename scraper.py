@@ -42,6 +42,9 @@ from scraper.ui_validation import (
     validate_batch_urls,
 )
 
+# Import UI helpers (Code Quality - Priority 3)
+from scraper.ui_helpers import build_fallback_chain
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -293,10 +296,7 @@ with tab_single:
                     else:
                         # Cache MISS - proceed with scraping
                         # Build fallback chain from selected model
-                        primary_model = ModelConfig(name=model_choice)
-                        fallback_chain = [primary_model] + [
-                            m for m in DEFAULT_FALLBACK_CHAIN if m.name != model_choice
-                        ]
+                        fallback_chain = build_fallback_chain(model_choice)
 
                         # Create executor
                         executor = ModelFallbackExecutor(fallback_chain)
@@ -584,10 +584,7 @@ with tab_batch:
                 )
 
                 # Build fallback chain
-                primary_model = ModelConfig(name=model_choice)
-                fallback_chain_batch = [primary_model] + [
-                    m for m in DEFAULT_FALLBACK_CHAIN if m.name != model_choice
-                ]
+                fallback_chain_batch = build_fallback_chain(model_choice)
 
                 # Initialize rate limiter if needed
                 batch_rate_limiter = None
@@ -723,21 +720,31 @@ with tab_batch:
 st.markdown("---")
 st.markdown(
     """
-    **v3.0 Phase 3 Features:**
+    **v3.0 Phase 4 Features (Security Hardening):**
+    - ✅ **URL Validation** (SSRF protection: blocks localhost, private IPs, metadata endpoints)
+    - ✅ **Prompt Sanitization** (LLM injection protection: blocks jailbreak patterns)
+    - ✅ **CSV Upload Limits** (Resource protection: 1MB max, 1000 URLs)
+    - ✅ **Input Validation** (Comprehensive security checks for all user inputs)
+    - ✅ **Stealth Mode** (Anti-detection headers with 4 levels: off/low/medium/high)
+
+    **v3.0 Phase 3 Features (Batch Processing):**
     - ✅ **Async Batch Processing** (10-100 URLs concurrently with progress tracking)
     - ✅ **CSV/Textarea URL Input** (flexible batch input methods)
     - ✅ **Real-time Progress Bar** (live status updates during batch processing)
     - ✅ **Batch Results Export** (CSV summaries + JSON data export)
 
-    **v3.0 Phase 1-2 Features:**
+    **v3.0 Phase 1-2 Features (Performance & Analytics):**
     - ✅ Redis Caching System (80-95% speed improvement for repeated URLs)
     - ✅ Persistent Metrics (SQLite database with cross-session analytics)
     - ✅ Analytics Dashboard (7-day stats with CSV export)
-    - ✅ Model Fallback Chain (99.9% uptime)
+    - ✅ Model Fallback Chain (99.9% uptime, automatic failover)
     - ✅ Enhanced Pydantic Validators (business logic validation)
     - ✅ Rate Limiting (ethical scraping with 4 presets)
     - ✅ Retry logic with exponential backoff (3 attempts)
-    - ✅ Few-shot prompt templates (7 templates)
-    - ✅ Markdown extraction mode (80% cost savings)
+    - ✅ Few-shot prompt templates (7 templates with examples)
+    - ✅ Markdown extraction mode (80% cost savings, no AI processing)
+
+    **Security**: Production-ready with SSRF protection, injection prevention, and resource limits.
+    **Documentation**: See `README.md`, `CLAUDE.md`, `UI-AUDIT-REPORT.md`, `IMPLEMENTATION-SUMMARY.md`
     """
 )

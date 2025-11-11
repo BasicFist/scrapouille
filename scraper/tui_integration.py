@@ -29,6 +29,7 @@ from .models import SCHEMAS, validate_data
 from .stealth import get_stealth_config, StealthHeaders
 from .batch import AsyncBatchProcessor, BatchConfig, BatchResult
 from .ui_validation import validate_url, sanitize_prompt
+from .ui_helpers import build_fallback_chain
 
 
 class TUIScraperBackend:
@@ -141,16 +142,7 @@ class TUIScraperBackend:
                 graph_config["loader_kwargs"] = {"headers": headers}
 
             # Build fallback chain
-            fallback_chain = [
-                ModelConfig(name=model),
-                *DEFAULT_FALLBACK_CHAIN,
-            ]
-            # Remove duplicates while preserving order
-            seen = set()
-            fallback_chain = [
-                mc for mc in fallback_chain
-                if mc.name not in seen and not seen.add(mc.name)
-            ]
+            fallback_chain = build_fallback_chain(model)
 
             executor = ModelFallbackExecutor(fallback_chain)
 
@@ -288,16 +280,7 @@ class TUIScraperBackend:
             graph_config["loader_kwargs"] = {"headers": headers}
 
         # Build fallback chain
-        fallback_chain = [
-            ModelConfig(name=model),
-            *DEFAULT_FALLBACK_CHAIN,
-        ]
-        # Remove duplicates
-        seen = set()
-        fallback_chain = [
-            mc for mc in fallback_chain
-            if mc.name not in seen and not seen.add(mc.name)
-        ]
+        fallback_chain = build_fallback_chain(model)
 
         # Build batch config
         batch_config = BatchConfig(
