@@ -1,0 +1,48 @@
+#!/bin/bash
+# Scrapouille Aliases
+# Add these to your ~/.bashrc or ~/.zshrc, or source this file:
+#   source /path/to/scrapouille/.scrapouille_aliases
+
+# Get the directory where this script is located
+SCRAPOUILLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Scrapouille TUI - Fast terminal interface
+alias scrapouille-tui="cd '$SCRAPOUILLE_DIR' && ./run-tui.sh"
+alias stui="cd '$SCRAPOUILLE_DIR' && ./run-tui.sh"
+
+# Scrapouille Web UI - Streamlit interface
+alias scrapouille-web="cd '$SCRAPOUILLE_DIR' && source venv-isolated/bin/activate && streamlit run scraper.py"
+alias sweb="cd '$SCRAPOUILLE_DIR' && source venv-isolated/bin/activate && streamlit run scraper.py"
+
+# Scrapouille shortcuts
+alias scrapouille="cd '$SCRAPOUILLE_DIR' && ./run-tui.sh"  # Default to TUI
+alias s-tui="cd '$SCRAPOUILLE_DIR' && python tui.py"       # Direct TUI launch
+alias s-web="cd '$SCRAPOUILLE_DIR' && source venv-isolated/bin/activate && streamlit run scraper.py"
+
+# Scrapouille development
+alias scrapouille-test="cd '$SCRAPOUILLE_DIR' && source venv-isolated/bin/activate && pytest tests/"
+alias scrapouille-test-quick="cd '$SCRAPOUILLE_DIR' && source venv-isolated/bin/activate && python test_integration_quick.py"
+alias scrapouille-activate="cd '$SCRAPOUILLE_DIR' && source venv-isolated/bin/activate"
+
+# Scrapouille utilities
+alias scrapouille-logs="cd '$SCRAPOUILLE_DIR' && tail -f data/metrics.db"
+alias scrapouille-cache-clear="cd '$SCRAPOUILLE_DIR' && redis-cli FLUSHDB"
+alias scrapouille-help="cat '$SCRAPOUILLE_DIR/TUI-README.md'"
+
+# Ollama helpers (for Scrapouille)
+alias ollama-start="ollama serve"
+alias ollama-models="ollama list"
+alias ollama-pull-qwen="ollama pull qwen2.5-coder:7b"
+
+# Redis helpers (for Scrapouille caching)
+alias redis-start="redis-server"
+alias redis-status="redis-cli ping"
+
+echo "Scrapouille aliases loaded! Available commands:"
+echo "  scrapouille-tui    (or stui)  - Launch Terminal UI"
+echo "  scrapouille-web    (or sweb)  - Launch Streamlit Web UI"
+echo "  scrapouille                   - Default to TUI"
+echo "  scrapouille-test              - Run test suite"
+echo "  scrapouille-help              - Show TUI documentation"
+echo ""
+echo "Quick launch: stui (TUI) or sweb (Web)"
