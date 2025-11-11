@@ -153,10 +153,10 @@ class SingleURLTab(VerticalScroll):
                 Label("Rate Limit:"),
                 Select(
                     options=[
-                        ("none", "None"),
-                        ("aggressive", "Aggressive (1s)"),
-                        ("normal", "Normal (2s)"),
-                        ("polite", "Polite (5s)"),
+                        ("None", "none"),
+                        ("Aggressive (1s)", "aggressive"),
+                        ("Normal (2s)", "normal"),
+                        ("Polite (5s)", "polite"),
                     ],
                     value="normal",
                     id="ratelimit_select",
@@ -168,10 +168,10 @@ class SingleURLTab(VerticalScroll):
                 Label("Stealth Mode:"),
                 Select(
                     options=[
-                        ("off", "Off"),
-                        ("low", "Low"),
-                        ("medium", "Medium"),
-                        ("high", "High"),
+                        ("Off", "off"),
+                        ("Low", "low"),
+                        ("Medium", "medium"),
+                        ("High", "high"),
                     ],
                     value="off",
                     id="stealth_select",
@@ -322,10 +322,10 @@ class ConfigTab(VerticalScroll):
         yield Label("Default Rate Limit:")
         yield Select(
             options=[
-                ("none", "None"),
-                ("aggressive", "Aggressive (1s)"),
-                ("normal", "Normal (2s)"),
-                ("polite", "Polite (5s)"),
+                ("None", "none"),
+                ("Aggressive (1s)", "aggressive"),
+                ("Normal (2s)", "normal"),
+                ("Polite (5s)", "polite"),
             ],
             value="normal",
             id="config_ratelimit_select",
@@ -334,10 +334,10 @@ class ConfigTab(VerticalScroll):
         yield Label("Default Stealth Level:")
         yield Select(
             options=[
-                ("off", "Off"),
-                ("low", "Low"),
-                ("medium", "Medium"),
-                ("high", "High"),
+                ("Off", "off"),
+                ("Low", "low"),
+                ("Medium", "medium"),
+                ("High", "high"),
             ],
             value="off",
             id="config_stealth_select",
