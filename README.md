@@ -94,6 +94,8 @@ playwright install chromium
 
 ### 3. Run Scrapouille
 
+**Option A: Streamlit Web UI** (Recommended for beginners)
+
 ```bash
 # Activate environment
 source venv-isolated/bin/activate
@@ -103,6 +105,26 @@ streamlit run scraper.py
 ```
 
 Visit http://localhost:8501 in your browser.
+
+**Option B: Terminal UI (TUI)** - New in v3.0 Phase 4!
+
+```bash
+# Launch TUI
+./run-tui.sh
+
+# Or manually
+source venv-isolated/bin/activate
+python tui.py
+```
+
+The TUI offers:
+- 🎨 Beautiful terminal interface inspired by [TUIjoli](https://github.com/BasicFist/TUIjoli)
+- ⚡ <1s startup time (vs 3-5s for Streamlit)
+- 🖥️ SSH/remote-friendly
+- ⌨️ Keyboard-first navigation
+- 📊 All features from web UI
+
+See [TUI-README.md](TUI-README.md) for full documentation.
 
 ---
 

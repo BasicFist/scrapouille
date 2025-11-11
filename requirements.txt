@@ -10,3 +10,5 @@ pydantic>=2.0.0          # Schema validation (already in scrapegraphai)
 python-dotenv>=1.0.0     # Environment variables
 # Phase 2 Dependencies
 redis>=5.0.0             # Caching system
+textual>=0.47.0          # TUI framework
+httpx>=0.25.0            # Async HTTP client for TUI
