@@ -24,13 +24,19 @@ if [ ! -d "venv-isolated" ]; then
     exit 1
 fi
 
+# Deactivate conda if active (to avoid conflicts)
+if command -v conda &> /dev/null && [ -n "${CONDA_DEFAULT_ENV:-}" ]; then
+    echo -e "${YELLOW}⚠ Conda environment detected, deactivating...${NC}"
+    conda deactivate 2>/dev/null || true
+fi
+
 # Activate virtual environment
 source venv-isolated/bin/activate
 
 # Check if required dependencies are installed
-if ! python -c "import textual" 2>/dev/null; then
+if ! ./venv-isolated/bin/python -c "import textual" 2>/dev/null; then
     echo -e "${YELLOW}⚠ Textual not found. Installing dependencies...${NC}"
-    pip install -r requirements.txt
+    ./venv-isolated/bin/pip install -r requirements.txt
 fi
 
 # Check Ollama connection
@@ -55,8 +61,8 @@ echo -e "${GREEN}Starting Scrapouille TUI...${NC}"
 echo -e "${CYAN}Press Ctrl+Q to quit${NC}"
 echo ""
 
-# Launch TUI
-python tui.py
+# Launch TUI with explicit venv python
+./venv-isolated/bin/python tui.py
 
 echo ""
 echo -e "${GREEN}✓ Scrapouille TUI closed${NC}"
