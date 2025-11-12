@@ -23,7 +23,6 @@ Version: Scrapouille v3.0 Phase 4
 
 import asyncio
 import json
-from typing import Optional
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -45,6 +44,7 @@ from textual.widgets import (
     TextArea,
 )
 from textual.reactive import reactive
+import httpx
 
 # Import Scrapouille modules
 from scraper.cache import ScraperCache
@@ -113,8 +113,11 @@ class SingleURLTab(VerticalScroll):
 
         # Template or Custom Prompt
         yield Label("Template (or use Custom Prompt below):")
+        template_options = [("Custom", "Custom")] + [
+            (name, name) for name in TEMPLATES.keys()
+        ]
         yield Select(
-            options=[(name, name) for name in ["Custom"] + list(TEMPLATES.keys())],
+            options=template_options,
             value="Custom",
             id="template_select",
         )
@@ -128,8 +131,11 @@ class SingleURLTab(VerticalScroll):
 
         # Schema Selection
         yield Label("Validation Schema (optional):")
+        schema_options = [("None", "None")] + [
+            (name, name) for name in SCHEMAS.keys()
+        ]
         yield Select(
-            options=[(name, name) for name in ["None"] + list(SCHEMAS.keys())],
+            options=schema_options,
             value="None",
             id="schema_select",
         )
@@ -278,6 +284,9 @@ class MetricsTab(VerticalScroll):
 
     def compose(self) -> ComposeResult:
         yield Label("[bold cyan]Metrics Dashboard[/bold cyan]")
+
+        # Loading indicator
+        yield Static("Loading...", id="metrics_loading")
 
         # Stats Summary
         yield Static(id="metrics_summary", markup=True)
@@ -535,20 +544,19 @@ class ScrapouilleApp(App):
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle button presses"""
-        button_id = event.button.id
-
-        if button_id == "scrape_button":
-            self.scrape_single_url()
-        elif button_id == "clear_button":
-            self.clear_single_url_results()
-        elif button_id == "batch_start_button":
-            self.start_batch_processing()
-        elif button_id == "batch_cancel_button":
-            self.cancel_batch_processing()
-        elif button_id == "metrics_refresh_button":
-            asyncio.create_task(self.refresh_metrics())
-        elif button_id == "config_save_button":
-            self.save_configuration()
+        button_handlers = {
+            "scrape_button": self.scrape_single_url,
+            "clear_button": self.clear_single_url_results,
+            "batch_start_button": self.start_batch_processing,
+            "batch_cancel_button": self.cancel_batch_processing,
+            "metrics_refresh_button": lambda: asyncio.create_task(
+                self.refresh_metrics()
+            ),
+            "config_save_button": self.save_configuration,
+        }
+        handler = button_handlers.get(event.button.id)
+        if handler:
+            handler()
 
     def scrape_single_url(self) -> None:
         """Handle single URL scraping"""
@@ -565,6 +573,8 @@ class ScrapouilleApp(App):
             return
 
         # Update status
+        scrape_button = self.query_one("#scrape_button", Button)
+        scrape_button.disabled = True
         status_bar = self.query_one("#status_bar", StatusBar)
         status_bar.status_text = "Scraping..."
 
@@ -590,7 +600,10 @@ class ScrapouilleApp(App):
                 prompt = custom_prompt.text.strip()
 
             if not prompt:
-                self.notify("Please enter a prompt or select a template", severity="error")
+                self.notify(
+                    "Please enter a prompt or select a template",
+                    severity="error"
+                )
                 status_bar.status_text = "Ready"
                 return
 
@@ -626,10 +639,19 @@ class ScrapouilleApp(App):
 
             status_bar.status_text = "Scraping completed"
 
+        except httpx.ConnectError as e:
+            error_message = f"Connection Error: {e}"
+            results_log.write_line(f"[red]✗ {error_message}[/red]")
+            status_bar.status_text = "Connection Error"
+            self.notify(error_message, severity="error")
         except Exception as e:
-            results_log.write_line(f"[red]✗ Error: {str(e)}[/red]")
+            error_message = f"An unexpected error occurred: {e}"
+            results_log.write_line(f"[red]✗ {error_message}[/red]")
             status_bar.status_text = "Error occurred"
-            self.notify(f"Error: {str(e)}", severity="error")
+            self.notify(error_message, severity="error")
+        finally:
+            scrape_button = self.query_one("#scrape_button", Button)
+            scrape_button.disabled = False
 
     def clear_single_url_results(self) -> None:
         """Clear results display"""
@@ -653,7 +675,9 @@ class ScrapouilleApp(App):
         batch_urls = self.query_one("#batch_urls", TextArea)
         batch_prompt = self.query_one("#batch_prompt", TextArea)
 
-        urls = [line.strip() for line in batch_urls.text.split('\n') if line.strip()]
+        urls = [
+            line.strip() for line in batch_urls.text.split('\n') if line.strip()
+        ]
         prompt = batch_prompt.text.strip()
 
         if not urls:
@@ -714,7 +738,11 @@ class ScrapouilleApp(App):
                 time_display = f"{result.execution_time:.2f}s"
                 model_display = result.model_used or "N/A"
                 cached_display = "Yes" if result.cached else "No"
-                error_display = result.error[:30] + "..." if result.error and len(result.error) > 30 else (result.error or "")
+                error_display = (
+                    result.error[:30] + "..."
+                    if result.error and len(result.error) > 30
+                    else (result.error or "")
+                )
 
                 table.add_row(
                     url_display,
@@ -731,16 +759,23 @@ class ScrapouilleApp(App):
             total_time = sum(r.execution_time for r in results)
             avg_time = total_time / len(results) if results else 0
 
-            status_bar.status_text = f"Batch completed: {successful}/{len(results)} successful"
+            status_bar.status_text = (
+                f"Batch completed: {successful}/{len(results)} successful"
+            )
             self.notify(
                 f"Batch completed: {successful}/{len(results)} successful, "
                 f"{cached_count} cached, avg time: {avg_time:.2f}s",
-                severity="information"
+                severity="information",
             )
 
+        except httpx.ConnectError as e:
+            error_message = f"Connection Error: {e}"
+            status_bar.status_text = "Connection Error"
+            self.notify(error_message, severity="error")
         except Exception as e:
+            error_message = f"An unexpected error occurred: {e}"
             status_bar.status_text = "Batch processing failed"
-            self.notify(f"Error: {str(e)}", severity="error")
+            self.notify(error_message, severity="error")
 
         finally:
             start_button.disabled = False
@@ -759,6 +794,14 @@ class ScrapouilleApp(App):
 
     async def refresh_metrics(self) -> None:
         """Refresh metrics display"""
+        loading = self.query_one("#metrics_loading", Static)
+        summary = self.query_one("#metrics_summary", Static)
+        table = self.query_one("#metrics_recent_table", DataTable)
+
+        loading.display = True
+        summary.display = False
+        table.display = False
+
         try:
             stats = self.backend.get_metrics_stats(days=7)
 
@@ -799,6 +842,10 @@ class ScrapouilleApp(App):
 
         except Exception as e:
             self.notify(f"Error loading metrics: {str(e)}", severity="error")
+        finally:
+            loading.display = False
+            summary.display = True
+            table.display = True
 
     def save_configuration(self) -> None:
         """Save configuration"""

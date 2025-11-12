@@ -22,7 +22,7 @@ from typing import Dict, Any, Optional, List, Tuple
 from scrapegraphai.graphs import SmartScraperGraph
 
 from .fallback import ModelFallbackExecutor, ModelConfig, DEFAULT_FALLBACK_CHAIN
-from .ratelimit import RateLimiter, RateLimitConfig, RATE_LIMIT_PRESETS
+from .ratelimit import RateLimiter, RATE_LIMIT_PRESETS
 from .cache import ScraperCache
 from .metrics import MetricsDB
 from .models import SCHEMAS, validate_data
@@ -72,7 +72,8 @@ class TUIScraperBackend:
 
         Returns:
             Tuple of (result_data, metadata)
-            metadata includes: execution_time, model_used, fallback_attempts, cached, validation_passed
+            metadata includes: execution_time, model_used, fallback_attempts,
+            cached, validation_passed
         """
         start_time = asyncio.get_event_loop().time()
         cached = False
@@ -88,9 +89,13 @@ class TUIScraperBackend:
             }
 
             if use_cache and self.cache.enabled:
-                cached_result = self.cache.get(url, prompt, **cache_key_params)
+                cached_result = self.cache.get(
+                    url, prompt, **cache_key_params
+                )
                 if cached_result:
-                    execution_time = asyncio.get_event_loop().time() - start_time
+                    execution_time = (
+                        asyncio.get_event_loop().time() - start_time
+                    )
                     return cached_result, {
                         'execution_time': execution_time,
                         'model_used': model,
@@ -149,16 +154,24 @@ class TUIScraperBackend:
 
             # Validate if schema provided
             if schema_name and schema_name in SCHEMAS:
-                is_valid, validated_data, error_msg = validate_data(result, schema_name)
+                is_valid, validated_data, error_msg = validate_data(
+                    result, schema_name
+                )
                 validation_passed = is_valid
                 if is_valid:
-                    result = validated_data.model_dump() if hasattr(validated_data, 'model_dump') else dict(validated_data)
+                    result = (
+                        validated_data.model_dump()
+                        if hasattr(validated_data, 'model_dump')
+                        else dict(validated_data)
+                    )
             else:
                 validation_passed = None
 
             # Cache result
             if use_cache and self.cache.enabled:
-                self.cache.set(url, prompt, result, ttl_hours=24, **cache_key_params)
+                self.cache.set(
+                    url, prompt, result, ttl_hours=24, **cache_key_params
+                )
 
             execution_time = asyncio.get_event_loop().time() - start_time
 
@@ -169,7 +182,9 @@ class TUIScraperBackend:
                 model=model_used,
                 execution_time=execution_time,
                 fallback_attempts=fallback_attempts,
-                validation_passed=validation_passed if validation_passed is not None else True,
+                validation_passed=(
+                    validation_passed if validation_passed is not None else True
+                ),
                 cached=cached,
                 schema_used=schema_name,
             )
@@ -318,7 +333,9 @@ class TUIScraperBackend:
         recent_metrics = self.metrics_db.get_recent(limit=limit)
         return [metric.to_dict() for metric in recent_metrics]
 
-    async def check_ollama_connection(self, base_url: str = "http://localhost:11434") -> bool:
+    async def check_ollama_connection(
+        self, base_url: str = "http://localhost:11434"
+    ) -> bool:
         """Check if Ollama is running
 
         Args:
