@@ -763,16 +763,19 @@ class ScrapouilleApp(App):
             stats = self.backend.get_metrics_stats(days=7)
 
             summary = self.query_one("#metrics_summary", Static)
+            avg_time = stats.get('avg_time')
+            avg_time_display = f"{avg_time:.2f}s" if avg_time is not None else "N/A"
+
             summary.update(
                 f"[bold cyan]7-Day Statistics[/bold cyan]\n\n"
                 f"Total Scrapes: [yellow]{stats.get('total_scrapes', 0)}[/yellow]\n"
-                f"Average Time: [green]{stats.get('avg_time', 0):.2f}s[/green]\n"
+                f"Average Time: [green]{avg_time_display}[/green]\n"
                 f"Cache Hit Rate: [blue]{stats.get('cache_hit_rate', 0):.1f}%[/blue]\n"
                 f"Error Rate: [red]{stats.get('error_rate', 0):.1f}%[/red]\n\n"
                 f"[bold]Model Usage:[/bold]\n" +
                 "\n".join([
-                    f"  {model}: {count} scrapes"
-                    for model, count in stats.get('model_usage', {}).items()
+                    f"  {model['model']}: {model['count']} scrapes"
+                    for model in stats.get('model_usage', [])
                 ])
             )
 
@@ -782,12 +785,14 @@ class ScrapouilleApp(App):
             table.clear()
 
             for record in recent:
+                execution_time = record.get('execution_time_seconds')
+                time_display = f"{execution_time:.2f}s" if execution_time is not None else "N/A"
                 table.add_row(
                     record.get('timestamp', 'N/A'),
                     record.get('url', 'N/A')[:40],
                     record.get('model', 'N/A'),
-                    f"{record.get('execution_time', 0):.2f}s",
-                    "✓" if record.get('success', True) else "✗",
+                    time_display,
+                    "✓" if record.get('error') is None else "✗",
                 )
 
             self.notify("Metrics refreshed", severity="information")

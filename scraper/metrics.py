@@ -193,7 +193,13 @@ class MetricsDB:
             result = dict(stats)
             result['cache_hit_rate'] = (result['cache_hits'] / result['total_scrapes'] * 100) if result['total_scrapes'] > 0 else 0
             result['error_rate'] = (result['errors'] / result['total_scrapes'] * 100) if result['total_scrapes'] > 0 else 0
-            result['model_usage'] = [dict(row) for row in model_stats]
+
+            # Format model usage as a list of dicts, as expected by the TUI
+            model_usage_list = [
+                {"model": row["model"], "count": row["count"]}
+                for row in model_stats
+            ]
+            result['model_usage'] = model_usage_list
 
             return result
 

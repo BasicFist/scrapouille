@@ -315,8 +315,8 @@ class TUIScraperBackend:
         Returns:
             List of scrape records
         """
-        # TODO: Implement this in MetricsDB
-        return []
+        recent_metrics = self.metrics_db.get_recent(limit=limit)
+        return [metric.to_dict() for metric in recent_metrics]
 
     async def check_ollama_connection(self, base_url: str = "http://localhost:11434") -> bool:
         """Check if Ollama is running
