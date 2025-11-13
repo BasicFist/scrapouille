@@ -62,13 +62,17 @@ class StatusBar(Static):
     redis_connected = reactive(False)
 
     def render(self) -> str:
-        ollama_icon = "🟢" if self.ollama_connected else "🔴"
-        redis_icon = "🟢" if self.redis_connected else "⚪"
-        return (
-            f"Status: {self.status_text} | "
-            f"Ollama {ollama_icon} | "
-            f"Redis {redis_icon}"
+        ollama_status = (
+            "[bold on $success] ● Ollama [/]"
+            if self.ollama_connected
+            else "[bold on $error] ○ Ollama [/]"
         )
+        redis_status = (
+            "[bold on $cache] ● Redis [/]"
+            if self.redis_connected
+            else "[bold on $warning] ○ Redis [/]"
+        )
+        return f"⚡ {self.status_text}  {ollama_status} {redis_status}"
 
 
 class MetricsPanel(Static):
@@ -413,28 +417,107 @@ class ScrapouilleApp(App):
     """Scrapouille TUI Application"""
 
     CSS = """
+    /* Vibrant Color Palette from BEAUTIFICATION.md */
+    $primary: #00D9FF;
+    $primary-dark: #00A8CC;
+    $primary-light: #5DFDFF;
+    $secondary: #7C3AED;
+    $secondary-dark: #6D28D9;
+    $secondary-light: #A78BFA;
+    $success: #10B981;
+    $warning: #F59E0B;
+    $error: #EF4444;
+    $info: #3B82F6;
+    $accent1: #EC4899;
+    $accent2: #8B5CF6;
+    $accent3: #14B8A6;
+    $accent4: #F97316;
+    $background: #0F172A;
+    $surface: #1E293B;
+    $surface-light: #334155;
+    $surface-dark: #0A0F1A;
+    $text: #F1F5F9;
+    $text-muted: #94A3B8;
+    $text-dim: #64748B;
+    $text-bright: #FFFFFF;
+    $cache: #14B8A6;
+    $validation: #8B5CF6;
+    $model: #EC4899;
+    $stealth: #6D28D9;
+
     Screen {
-        background: $surface;
+        background: $background;
+        color: $text;
     }
 
     StatusBar {
         dock: bottom;
-        height: 1;
-        background: $primary-darken-2;
+        height: 2;
+        background: $surface;
         color: $text;
+        border-top: thick $primary;
         padding: 0 1;
+    }
+
+    Footer {
+        height: 2;
+        background: $surface-dark;
+        border-top: thick $accent2;
     }
 
     TabbedContent {
         height: 100%;
     }
 
+    TabPane {
+        padding: 1;
+    }
+
+    Tab {
+        background: $surface;
+        border: none;
+        color: $text-muted;
+    }
+
+    Tab:hover {
+        background: $surface-light;
+        color: $text-bright;
+    }
+
+    Tab.--active {
+        background: $surface-dark;
+        color: $primary;
+        border: thick $primary;
+    }
+
     Input, TextArea, Select {
         margin: 0 0 1 0;
+        border: thick $primary;
+    }
+
+    TextArea {
+        border: thick $accent2;
+    }
+
+    Select {
+        border: thick $secondary;
     }
 
     Button {
         margin: 0 1 1 0;
+        height: 2;
+    }
+
+    Button.--primary {
+        background: $primary;
+    }
+
+    Button.--success {
+        background: $success;
+    }
+
+    Button.--error {
+        background: $error;
     }
 
     .results-container {
@@ -447,7 +530,7 @@ class ScrapouilleApp(App):
     MetricsPanel {
         width: 1fr;
         height: 20;
-        border: solid $accent;
+        border: solid $accent1;
         padding: 1;
         margin: 1 0 0 0;
     }
@@ -464,6 +547,20 @@ class ScrapouilleApp(App):
 
     ProgressBar {
         margin: 1 0;
+    }
+
+    Checkbox {
+        height: 3;
+        padding: 1;
+        border: thick $surface-light;
+    }
+
+    Checkbox:hover {
+        border: thick $primary;
+    }
+
+    Checkbox.-on {
+        border: thick $success;
     }
     """
 
@@ -485,19 +582,19 @@ class ScrapouilleApp(App):
         yield StatusBar(id="status_bar")
 
         with TabbedContent():
-            with TabPane("Single URL", id="tab_single"):
+            with TabPane("🎯 Single URL", id="tab_single"):
                 yield SingleURLTab()
 
-            with TabPane("Batch", id="tab_batch"):
+            with TabPane("⚡ Batch", id="tab_batch"):
                 yield BatchTab()
 
-            with TabPane("Metrics", id="tab_metrics"):
+            with TabPane("📊 Metrics", id="tab_metrics"):
                 yield MetricsTab()
 
-            with TabPane("Config", id="tab_config"):
+            with TabPane("⚙️ Config", id="tab_config"):
                 yield ConfigTab()
 
-            with TabPane("Help", id="tab_help"):
+            with TabPane("❓ Help", id="tab_help"):
                 yield HelpTab()
 
         yield Footer()
