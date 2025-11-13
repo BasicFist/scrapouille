@@ -23,7 +23,6 @@ Version: Scrapouille v3.0 Phase 4
 
 import asyncio
 import json
-from typing import Optional
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -45,6 +44,7 @@ from textual.widgets import (
     TextArea,
 )
 from textual.reactive import reactive
+import httpx
 
 # Import Scrapouille modules
 from scraper.cache import ScraperCache
@@ -62,13 +62,17 @@ class StatusBar(Static):
     redis_connected = reactive(False)
 
     def render(self) -> str:
-        ollama_icon = "🟢" if self.ollama_connected else "🔴"
-        redis_icon = "🟢" if self.redis_connected else "⚪"
-        return (
-            f"Status: {self.status_text} | "
-            f"Ollama {ollama_icon} | "
-            f"Redis {redis_icon}"
+        ollama_status = (
+            "[bold on $success] ● Ollama [/]"
+            if self.ollama_connected
+            else "[bold on $error] ○ Ollama [/]"
         )
+        redis_status = (
+            "[bold on $cache] ● Redis [/]"
+            if self.redis_connected
+            else "[bold on $warning] ○ Redis [/]"
+        )
+        return f"⚡ {self.status_text}  {ollama_status} {redis_status}"
 
 
 class MetricsPanel(Static):
@@ -113,8 +117,11 @@ class SingleURLTab(VerticalScroll):
 
         # Template or Custom Prompt
         yield Label("Template (or use Custom Prompt below):")
+        template_options = [("Custom", "Custom")] + [
+            (name, name) for name in TEMPLATES.keys()
+        ]
         yield Select(
-            options=[(name, name) for name in ["Custom"] + list(TEMPLATES.keys())],
+            options=template_options,
             value="Custom",
             id="template_select",
         )
@@ -128,8 +135,11 @@ class SingleURLTab(VerticalScroll):
 
         # Schema Selection
         yield Label("Validation Schema (optional):")
+        schema_options = [("None", "None")] + [
+            (name, name) for name in SCHEMAS.keys()
+        ]
         yield Select(
-            options=[(name, name) for name in ["None"] + list(SCHEMAS.keys())],
+            options=schema_options,
             value="None",
             id="schema_select",
         )
@@ -279,6 +289,9 @@ class MetricsTab(VerticalScroll):
     def compose(self) -> ComposeResult:
         yield Label("[bold cyan]Metrics Dashboard[/bold cyan]")
 
+        # Loading indicator
+        yield Static("Loading...", id="metrics_loading")
+
         # Stats Summary
         yield Static(id="metrics_summary", markup=True)
 
@@ -404,28 +417,107 @@ class ScrapouilleApp(App):
     """Scrapouille TUI Application"""
 
     CSS = """
+    /* Vibrant Color Palette from BEAUTIFICATION.md */
+    $primary: #00D9FF;
+    $primary-dark: #00A8CC;
+    $primary-light: #5DFDFF;
+    $secondary: #7C3AED;
+    $secondary-dark: #6D28D9;
+    $secondary-light: #A78BFA;
+    $success: #10B981;
+    $warning: #F59E0B;
+    $error: #EF4444;
+    $info: #3B82F6;
+    $accent1: #EC4899;
+    $accent2: #8B5CF6;
+    $accent3: #14B8A6;
+    $accent4: #F97316;
+    $background: #0F172A;
+    $surface: #1E293B;
+    $surface-light: #334155;
+    $surface-dark: #0A0F1A;
+    $text: #F1F5F9;
+    $text-muted: #94A3B8;
+    $text-dim: #64748B;
+    $text-bright: #FFFFFF;
+    $cache: #14B8A6;
+    $validation: #8B5CF6;
+    $model: #EC4899;
+    $stealth: #6D28D9;
+
     Screen {
-        background: $surface;
+        background: $background;
+        color: $text;
     }
 
     StatusBar {
         dock: bottom;
-        height: 1;
-        background: $primary-darken-2;
+        height: 2;
+        background: $surface;
         color: $text;
+        border-top: thick $primary;
         padding: 0 1;
+    }
+
+    Footer {
+        height: 2;
+        background: $surface-dark;
+        border-top: thick $accent2;
     }
 
     TabbedContent {
         height: 100%;
     }
 
+    TabPane {
+        padding: 1;
+    }
+
+    Tab {
+        background: $surface;
+        border: none;
+        color: $text-muted;
+    }
+
+    Tab:hover {
+        background: $surface-light;
+        color: $text-bright;
+    }
+
+    Tab.--active {
+        background: $surface-dark;
+        color: $primary;
+        border: thick $primary;
+    }
+
     Input, TextArea, Select {
         margin: 0 0 1 0;
+        border: thick $primary;
+    }
+
+    TextArea {
+        border: thick $accent2;
+    }
+
+    Select {
+        border: thick $secondary;
     }
 
     Button {
         margin: 0 1 1 0;
+        height: 2;
+    }
+
+    Button.--primary {
+        background: $primary;
+    }
+
+    Button.--success {
+        background: $success;
+    }
+
+    Button.--error {
+        background: $error;
     }
 
     .results-container {
@@ -438,7 +530,7 @@ class ScrapouilleApp(App):
     MetricsPanel {
         width: 1fr;
         height: 20;
-        border: solid $accent;
+        border: solid $accent1;
         padding: 1;
         margin: 1 0 0 0;
     }
@@ -455,6 +547,20 @@ class ScrapouilleApp(App):
 
     ProgressBar {
         margin: 1 0;
+    }
+
+    Checkbox {
+        height: 3;
+        padding: 1;
+        border: thick $surface-light;
+    }
+
+    Checkbox:hover {
+        border: thick $primary;
+    }
+
+    Checkbox.-on {
+        border: thick $success;
     }
     """
 
@@ -476,19 +582,19 @@ class ScrapouilleApp(App):
         yield StatusBar(id="status_bar")
 
         with TabbedContent():
-            with TabPane("Single URL", id="tab_single"):
+            with TabPane("🎯 Single URL", id="tab_single"):
                 yield SingleURLTab()
 
-            with TabPane("Batch", id="tab_batch"):
+            with TabPane("⚡ Batch", id="tab_batch"):
                 yield BatchTab()
 
-            with TabPane("Metrics", id="tab_metrics"):
+            with TabPane("📊 Metrics", id="tab_metrics"):
                 yield MetricsTab()
 
-            with TabPane("Config", id="tab_config"):
+            with TabPane("⚙️ Config", id="tab_config"):
                 yield ConfigTab()
 
-            with TabPane("Help", id="tab_help"):
+            with TabPane("❓ Help", id="tab_help"):
                 yield HelpTab()
 
         yield Footer()
@@ -535,20 +641,19 @@ class ScrapouilleApp(App):
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle button presses"""
-        button_id = event.button.id
-
-        if button_id == "scrape_button":
-            self.scrape_single_url()
-        elif button_id == "clear_button":
-            self.clear_single_url_results()
-        elif button_id == "batch_start_button":
-            self.start_batch_processing()
-        elif button_id == "batch_cancel_button":
-            self.cancel_batch_processing()
-        elif button_id == "metrics_refresh_button":
-            asyncio.create_task(self.refresh_metrics())
-        elif button_id == "config_save_button":
-            self.save_configuration()
+        button_handlers = {
+            "scrape_button": self.scrape_single_url,
+            "clear_button": self.clear_single_url_results,
+            "batch_start_button": self.start_batch_processing,
+            "batch_cancel_button": self.cancel_batch_processing,
+            "metrics_refresh_button": lambda: asyncio.create_task(
+                self.refresh_metrics()
+            ),
+            "config_save_button": self.save_configuration,
+        }
+        handler = button_handlers.get(event.button.id)
+        if handler:
+            handler()
 
     def scrape_single_url(self) -> None:
         """Handle single URL scraping"""
@@ -565,6 +670,8 @@ class ScrapouilleApp(App):
             return
 
         # Update status
+        scrape_button = self.query_one("#scrape_button", Button)
+        scrape_button.disabled = True
         status_bar = self.query_one("#status_bar", StatusBar)
         status_bar.status_text = "Scraping..."
 
@@ -590,7 +697,10 @@ class ScrapouilleApp(App):
                 prompt = custom_prompt.text.strip()
 
             if not prompt:
-                self.notify("Please enter a prompt or select a template", severity="error")
+                self.notify(
+                    "Please enter a prompt or select a template",
+                    severity="error"
+                )
                 status_bar.status_text = "Ready"
                 return
 
@@ -626,10 +736,19 @@ class ScrapouilleApp(App):
 
             status_bar.status_text = "Scraping completed"
 
+        except httpx.ConnectError as e:
+            error_message = f"Connection Error: {e}"
+            results_log.write_line(f"[red]✗ {error_message}[/red]")
+            status_bar.status_text = "Connection Error"
+            self.notify(error_message, severity="error")
         except Exception as e:
-            results_log.write_line(f"[red]✗ Error: {str(e)}[/red]")
+            error_message = f"An unexpected error occurred: {e}"
+            results_log.write_line(f"[red]✗ {error_message}[/red]")
             status_bar.status_text = "Error occurred"
-            self.notify(f"Error: {str(e)}", severity="error")
+            self.notify(error_message, severity="error")
+        finally:
+            scrape_button = self.query_one("#scrape_button", Button)
+            scrape_button.disabled = False
 
     def clear_single_url_results(self) -> None:
         """Clear results display"""
@@ -653,7 +772,9 @@ class ScrapouilleApp(App):
         batch_urls = self.query_one("#batch_urls", TextArea)
         batch_prompt = self.query_one("#batch_prompt", TextArea)
 
-        urls = [line.strip() for line in batch_urls.text.split('\n') if line.strip()]
+        urls = [
+            line.strip() for line in batch_urls.text.split('\n') if line.strip()
+        ]
         prompt = batch_prompt.text.strip()
 
         if not urls:
@@ -714,7 +835,11 @@ class ScrapouilleApp(App):
                 time_display = f"{result.execution_time:.2f}s"
                 model_display = result.model_used or "N/A"
                 cached_display = "Yes" if result.cached else "No"
-                error_display = result.error[:30] + "..." if result.error and len(result.error) > 30 else (result.error or "")
+                error_display = (
+                    result.error[:30] + "..."
+                    if result.error and len(result.error) > 30
+                    else (result.error or "")
+                )
 
                 table.add_row(
                     url_display,
@@ -731,16 +856,23 @@ class ScrapouilleApp(App):
             total_time = sum(r.execution_time for r in results)
             avg_time = total_time / len(results) if results else 0
 
-            status_bar.status_text = f"Batch completed: {successful}/{len(results)} successful"
+            status_bar.status_text = (
+                f"Batch completed: {successful}/{len(results)} successful"
+            )
             self.notify(
                 f"Batch completed: {successful}/{len(results)} successful, "
                 f"{cached_count} cached, avg time: {avg_time:.2f}s",
-                severity="information"
+                severity="information",
             )
 
+        except httpx.ConnectError as e:
+            error_message = f"Connection Error: {e}"
+            status_bar.status_text = "Connection Error"
+            self.notify(error_message, severity="error")
         except Exception as e:
+            error_message = f"An unexpected error occurred: {e}"
             status_bar.status_text = "Batch processing failed"
-            self.notify(f"Error: {str(e)}", severity="error")
+            self.notify(error_message, severity="error")
 
         finally:
             start_button.disabled = False
@@ -759,20 +891,31 @@ class ScrapouilleApp(App):
 
     async def refresh_metrics(self) -> None:
         """Refresh metrics display"""
+        loading = self.query_one("#metrics_loading", Static)
+        summary = self.query_one("#metrics_summary", Static)
+        table = self.query_one("#metrics_recent_table", DataTable)
+
+        loading.display = True
+        summary.display = False
+        table.display = False
+
         try:
             stats = self.backend.get_metrics_stats(days=7)
 
             summary = self.query_one("#metrics_summary", Static)
+            avg_time = stats.get('avg_time')
+            avg_time_display = f"{avg_time:.2f}s" if avg_time is not None else "N/A"
+
             summary.update(
                 f"[bold cyan]7-Day Statistics[/bold cyan]\n\n"
                 f"Total Scrapes: [yellow]{stats.get('total_scrapes', 0)}[/yellow]\n"
-                f"Average Time: [green]{stats.get('avg_time', 0):.2f}s[/green]\n"
+                f"Average Time: [green]{avg_time_display}[/green]\n"
                 f"Cache Hit Rate: [blue]{stats.get('cache_hit_rate', 0):.1f}%[/blue]\n"
                 f"Error Rate: [red]{stats.get('error_rate', 0):.1f}%[/red]\n\n"
                 f"[bold]Model Usage:[/bold]\n" +
                 "\n".join([
-                    f"  {model}: {count} scrapes"
-                    for model, count in stats.get('model_usage', {}).items()
+                    f"  {model['model']}: {model['count']} scrapes"
+                    for model in stats.get('model_usage', [])
                 ])
             )
 
@@ -782,18 +925,24 @@ class ScrapouilleApp(App):
             table.clear()
 
             for record in recent:
+                execution_time = record.get('execution_time_seconds')
+                time_display = f"{execution_time:.2f}s" if execution_time is not None else "N/A"
                 table.add_row(
                     record.get('timestamp', 'N/A'),
                     record.get('url', 'N/A')[:40],
                     record.get('model', 'N/A'),
-                    f"{record.get('execution_time', 0):.2f}s",
-                    "✓" if record.get('success', True) else "✗",
+                    time_display,
+                    "✓" if record.get('error') is None else "✗",
                 )
 
             self.notify("Metrics refreshed", severity="information")
 
         except Exception as e:
             self.notify(f"Error loading metrics: {str(e)}", severity="error")
+        finally:
+            loading.display = False
+            summary.display = True
+            table.display = True
 
     def save_configuration(self) -> None:
         """Save configuration"""
